@@ -1,71 +1,100 @@
 import type { PlaylistItem } from '../types';
 
-const API_BASE = 'https://www.googleapis.com/youtube/v3';
+// Public Invidious instance – no API key required.
+// If this instance goes down, replace with another from https://docs.invidious.io/instances/
+const INVIDIOUS_INSTANCE = 'https://inv.nadeko.net';
+
+// Videos returned per page by Invidious
+const VIDEOS_PER_PAGE = 100;
 
 export interface FetchProgress {
   loaded: number;
   total: number;
 }
 
+interface InvidiousThumbnail {
+  quality: string;
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+interface InvidiousVideo {
+  videoId: string;
+  title: string;
+  author: string;
+  videoThumbnails: InvidiousThumbnail[];
+}
+
+interface InvidiousPlaylistResponse {
+  videoCount: number;
+  videos: InvidiousVideo[];
+  error?: string;
+}
+
+function pickThumbnail(thumbs: InvidiousThumbnail[], instanceBase: string): string {
+  const preferred = ['medium', 'high', 'sddefault', 'default', 'maxresdefault'];
+  for (const quality of preferred) {
+    const t = thumbs.find((t) => t.quality === quality);
+    if (t?.url) {
+      return t.url.startsWith('http') ? t.url : `${instanceBase}${t.url}`;
+    }
+  }
+  const first = thumbs[0];
+  if (!first?.url) return '';
+  return first.url.startsWith('http') ? first.url : `${instanceBase}${first.url}`;
+}
+
 export async function fetchPlaylistItems(
-  apiKey: string,
   playlistId: string,
   onProgress?: (progress: FetchProgress) => void
 ): Promise<PlaylistItem[]> {
   const items: PlaylistItem[] = [];
-  let nextPageToken: string | undefined;
+  let page = 1;
   let totalResults = 0;
-  let fetchedFromApi = 0;
+  let fetched = 0;
 
-  do {
-    const params = new URLSearchParams({
-      part: 'snippet',
-      playlistId,
-      maxResults: '50',
-      key: apiKey,
-    });
-    if (nextPageToken) {
-      params.set('pageToken', nextPageToken);
-    }
+  while (true) {
+    const url = `${INVIDIOUS_INSTANCE}/api/v1/playlists/${encodeURIComponent(playlistId)}?page=${page}`;
+    const response = await fetch(url);
 
-    const response = await fetch(`${API_BASE}/playlistItems?${params}`);
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(
-        error.error?.message ?? `YouTube API error: ${response.status}`
-      );
-    }
-
-    const data = await response.json();
-
-    if (data.pageInfo?.totalResults) {
-      totalResults = data.pageInfo.totalResults;
-    }
-
-    for (const item of data.items ?? []) {
-      fetchedFromApi++;
-      const snippet = item.snippet;
-      // Skip deleted / private videos
-      if (snippet.title === 'Deleted video' || snippet.title === 'Private video') {
-        continue;
+      let message = `Invidious API error: ${response.status}`;
+      try {
+        const err: InvidiousPlaylistResponse = await response.json();
+        if (err.error) message = err.error;
+      } catch {
+        // ignore JSON parse errors
       }
+      throw new Error(message);
+    }
+
+    const data: InvidiousPlaylistResponse = await response.json();
+
+    if (page === 1) {
+      totalResults = data.videoCount ?? 0;
+    }
+
+    const videos = data.videos ?? [];
+    if (videos.length === 0) break;
+
+    for (const video of videos) {
+      fetched++;
       items.push({
-        videoId: snippet.resourceId.videoId,
-        title: snippet.title,
-        thumbnail:
-          snippet.thumbnails?.medium?.url ??
-          snippet.thumbnails?.default?.url ??
-          '',
-        channelTitle: snippet.channelTitle ?? '',
+        videoId: video.videoId,
+        title: video.title,
+        thumbnail: pickThumbnail(video.videoThumbnails ?? [], INVIDIOUS_INSTANCE),
+        channelTitle: video.author ?? '',
       });
     }
 
-    nextPageToken = data.nextPageToken;
-
     if (onProgress && totalResults > 0) {
-      onProgress({ loaded: fetchedFromApi, total: totalResults });
+      onProgress({ loaded: fetched, total: totalResults });
     }
-  } while (nextPageToken);
+
+    if (fetched >= totalResults || videos.length < VIDEOS_PER_PAGE) break;
+    page++;
+  }
 
   return items;
 }

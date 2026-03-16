@@ -19,7 +19,6 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 function App() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('yt-api-key') ?? '');
   const [playlistId, setPlaylistId] = useState(DEFAULT_PLAYLIST_ID);
   const [items, setItems] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -185,15 +184,13 @@ function App() {
   // ── Setup form ──
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!apiKey.trim()) return;
 
     setLoading(true);
     setError(null);
     setProgress(null);
 
     try {
-      localStorage.setItem('yt-api-key', apiKey.trim());
-      const fetched = await fetchPlaylistItems(apiKey.trim(), playlistId, setProgress);
+      const fetched = await fetchPlaylistItems(playlistId, setProgress);
       if (fetched.length === 0) {
         setError('Playlist is empty or not found.');
         return;
@@ -226,20 +223,9 @@ function App() {
             <span className="logo">▶</span> YT Playlist Player
           </h1>
           <p className="setup-desc">
-            Enter your YouTube Data API v3 key to load a playlist.
+            Enter a YouTube Playlist ID to load it. No API key required.
           </p>
           <form onSubmit={handleSubmit} className="setup-form">
-            <label className="setup-label">
-              API Key
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="AIzaSy..."
-                className="setup-input"
-                required
-              />
-            </label>
             <label className="setup-label">
               Playlist ID
               <input
