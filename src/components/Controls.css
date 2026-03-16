@@ -1,0 +1,45 @@
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 0 4px;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ctrl-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ctrl-btn.active {
+  color: #ff0000;
+}
+
+.ctrl-btn.active:hover {
+  color: #ff3333;
+}
+
+.ctrl-play {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  width: 52px;
+  height: 52px;
+}
+
+.ctrl-play:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
