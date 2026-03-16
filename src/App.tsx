@@ -267,7 +267,7 @@ function App() {
       <div className="main-panel">
         <header className="top-bar">
           <h1 className="top-title">
-            <span className="logo">▶</span> YT Player
+            <span className="logo">▶</span> YT Playlist Player
           </h1>
           <button className="reset-btn" onClick={handleReset}>
             Change Playlist
